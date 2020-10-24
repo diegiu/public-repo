@@ -1,7 +1,9 @@
 package it.diegiu.weather.bulletin.orchestration;
 
-import static it.diegiu.weather.bulletin.utils.ApplicationUtils.handleResponseEntity;
+import static it.diegiu.weather.bulletin.utils.ApplicationUtils.INTERNAL_SERVER_ERROR;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -28,6 +30,7 @@ import it.diegiu.weather.bulletin.model.Hourly;
 import it.diegiu.weather.bulletin.model.Weather;
 import it.diegiu.weather.bulletin.model.WeatherReq;
 import it.diegiu.weather.bulletin.model.WeatherRes;
+import it.diegiu.weather.bulletin.utils.ApplicationUtils;
 
 /**
  * The implementation of the orchestration service of the "tiny-weather-bulletin" project.
@@ -41,6 +44,12 @@ public class ApplicationOrchestration implements IApplicationOrchestration {
 	@Value("${api.key}")
 	private String apiKey;
 	
+	@Value("${current.weatherForecastUrl}")
+	private String currentWeatherForecastUrl;
+	
+	@Value("${hourly.weatherForecastUrl}")
+	private String hourlyWeatherForecastUrl;
+	
 	@Autowired
 	private RestTemplate restTemplate;
 	
@@ -51,31 +60,30 @@ public class ApplicationOrchestration implements IApplicationOrchestration {
 	 */
 	public WeatherRes getWeatherData(WeatherReq weatherReq) {
 		
-		String resourceUrl = null;
 		Map<String, String> params = null;
 		ResponseEntity<String> response = null;
 		Weather weather = null;
 		
 		try {
+			// prepare the working hours range given the input time span
 			List<Integer> workingHoursIn = new LinkedList<Integer>();
-			for (int i = weatherReq.getFromWorkingHours(); i < weatherReq.getToWorkingHours(); i++) {
+			for (int i = weatherReq.getFromWorkingHours(); i <= weatherReq.getToWorkingHours(); i++) {
 				workingHoursIn.add(i);
 			}
 			
 			// prepare input data to call OpenWeather API
-			resourceUrl = "http://api.openweathermap.org/data/2.5/weather?q={city-name}&units=metric&appid={API-key}";
 			params = new HashMap<String, String>(2);
 		    params.put("city-name", StringUtils.trimToEmpty(weatherReq.getCityName()));
 		    params.put("API-key", apiKey);
 		    
 			// call OpenWeather API with registered API key to retrieve only coordinates given the city name
 			// see the https://openweathermap.org/current for more details
-			response = restTemplate.getForEntity(resourceUrl, String.class, params);
-			handleResponseEntity(response, objectMapper);
+			response = restTemplate.getForEntity(currentWeatherForecastUrl, String.class, params);
+			ApplicationUtils.handleResponseEntity(response, objectMapper);
 			weather = objectMapper.readValue(response.getBody(), Weather.class);
+			String cityName = weather.getName();
 			
 			// prepare input data to call OpenWeather API
-			resourceUrl = "http://api.openweathermap.org/data/2.5/onecall?lat={lat}&lon={lon}&exclude=current,minutely,daily,alerts&units=metric&appid={API-key}";
 			Coordinates coordinates = weather.getCoord();
 			params = new HashMap<String, String>(3);
 		    params.put("lat", "" + coordinates.getLat());
@@ -84,8 +92,8 @@ public class ApplicationOrchestration implements IApplicationOrchestration {
 		    
 		    // call OpenWeather API with registered API key to retrieve hourly forecast for 48 hours given the coordinates of the city
 		 	// see the https://openweathermap.org/api/one-call-api for more details
-		    response = restTemplate.getForEntity(resourceUrl, String.class, params);
-			handleResponseEntity(response, objectMapper);
+		    response = restTemplate.getForEntity(hourlyWeatherForecastUrl, String.class, params);
+		    ApplicationUtils.handleResponseEntity(response, objectMapper);
 			weather = objectMapper.readValue(response.getBody(), Weather.class);
 			
 			List<Hourly> hourlies = Lists.newArrayList(weather.getHourly());
@@ -96,45 +104,44 @@ public class ApplicationOrchestration implements IApplicationOrchestration {
 			List<Long> outsideWoursFeelsLike = new LinkedList<Long>();
 			List<Long> outsideWorkingHoursHumidity = new LinkedList<Long>();
 			
-			for (Hourly hourly : hourlies) {
+			hourlies.forEach(hourly -> {
 				// get the human-readable date from epoch time returned from OpenWeather API
 				DateTime dateTime = new DateTime(hourly.getDt() * 1000, DateTimeZone.UTC);
+				int hourOfDay = BigDecimal.ZERO.intValue() == dateTime.getHourOfDay() ? 24 : dateTime.getHourOfDay();
 				long temp = hourly.getTemp();
 				long feelsLike = hourly.getFeels_like();
 				long humidity = hourly.getHumidity();
 				
-				for (int wHourIn : workingHoursIn) {
-					if (wHourIn == dateTime.getHourOfDay()) {
-						workingHoursTemp.add(temp);
-						workingHoursFeelsLike.add(feelsLike);
-						workingHoursHumidity.add(humidity);
-					} else {
-						outsideWorkingHoursTemp.add(temp);
-						outsideWoursFeelsLike.add(feelsLike);
-						outsideWorkingHoursHumidity.add(humidity);
-					}
+				if (workingHoursIn.contains(hourOfDay)) {
+					workingHoursTemp.add(temp);
+					workingHoursFeelsLike.add(feelsLike);
+					workingHoursHumidity.add(humidity);
+				} else {
+					outsideWorkingHoursTemp.add(temp);
+					outsideWoursFeelsLike.add(feelsLike);
+					outsideWorkingHoursHumidity.add(humidity);
 				}
-			}
+			});
 			
-//			hourlies.forEach(hourly -> {
-			// get the human-readable date from epoch time returned from OpenWeather API
+			// TODO remove after debugging
+//			for (Hourly hourly : hourlies) {
+//				// get the human-readable date from epoch time returned from OpenWeather API
 //				DateTime dateTime = new DateTime(hourly.getDt() * 1000, DateTimeZone.UTC);
+//				int hourOfDay = BigDecimal.ZERO.intValue() == dateTime.getHourOfDay() ? 24 : dateTime.getHourOfDay();
 //				long temp = hourly.getTemp();
 //				long feelsLike = hourly.getFeels_like();
 //				long humidity = hourly.getHumidity();
 //				
-//				workingHoursIn.forEach(wHourIn -> {
-//					if (wHourIn == dateTime.getHourOfDay()) {
-//						workingHoursTemp.add(temp);
-//						workingHoursFeelsLike.add(feelsLike);
-//						workingHoursHumidity.add(humidity);
-//					} else {
-//						outsideWorkingHoursTemp.add(temp);
-//						outsideWoursFeelsLike.add(feelsLike);
-//						outsideWorkingHoursHumidity.add(humidity);
-//					}
-//				});
-//			});
+//				if (workingHoursIn.contains(hourOfDay)) {
+//					workingHoursTemp.add(temp);
+//					workingHoursFeelsLike.add(feelsLike);
+//					workingHoursHumidity.add(humidity);
+//				} else {
+//					outsideWorkingHoursTemp.add(temp);
+//					outsideWoursFeelsLike.add(feelsLike);
+//					outsideWorkingHoursHumidity.add(humidity);
+//				}
+//			}
 			
 			// Find maximum, minimum, sum and average of a list(s)
 			LongSummaryStatistics workingHoursTempStats = 
@@ -153,18 +160,26 @@ public class ApplicationOrchestration implements IApplicationOrchestration {
 			
 			// return response ...
 			// average average maximum/feels-like temperatures and humidity during/outside the working hours
-			return new WeatherRes(workingHoursTempStats.getAverage(), workingHoursFeelsLikeStats.getAverage(), workingHoursHumidityStats.getAverage(), 
-				outsideWorkingHoursTempStats.getAverage(), outsideWorkingHoursFeelsLikeStats.getAverage(), outsideWorkingHoursHumidityStats.getAverage());
+			return new WeatherRes
+			(
+				cityName, coordinates.getLat(), coordinates.getLon(), 
+				BigDecimal.valueOf(workingHoursTempStats.getAverage()).setScale(2, RoundingMode.HALF_UP).doubleValue(), 
+				BigDecimal.valueOf(workingHoursFeelsLikeStats.getAverage()).setScale(2, RoundingMode.HALF_UP).doubleValue(), 
+				BigDecimal.valueOf(workingHoursHumidityStats.getAverage()).setScale(2, RoundingMode.HALF_UP).doubleValue(), 
+				BigDecimal.valueOf(outsideWorkingHoursTempStats.getAverage()).setScale(2, RoundingMode.HALF_UP).doubleValue(), 
+				BigDecimal.valueOf(outsideWorkingHoursFeelsLikeStats.getAverage()).setScale(2, RoundingMode.HALF_UP).doubleValue(), 
+				BigDecimal.valueOf(outsideWorkingHoursHumidityStats.getAverage()).setScale(2, RoundingMode.HALF_UP).doubleValue()
+			);
 			
 		} catch (HttpClientErrorException e) {
 			int statusCode = e.getRawStatusCode();
 			if (HttpStatus.NOT_FOUND.value() == statusCode) {
 				throw new ApplicationException(statusCode, String.format("No results found given the city with the name %s", weatherReq.getCityName()));
 			}
-			throw new ApplicationException(HttpStatus.INTERNAL_SERVER_ERROR.value(), HttpStatus.INTERNAL_SERVER_ERROR.name());
+			throw new ApplicationException(HttpStatus.INTERNAL_SERVER_ERROR.value(), INTERNAL_SERVER_ERROR);
 			
 		} catch (Exception e1) {
-			throw new ApplicationException(HttpStatus.INTERNAL_SERVER_ERROR.value(), HttpStatus.INTERNAL_SERVER_ERROR.name());
+			throw new ApplicationException(HttpStatus.INTERNAL_SERVER_ERROR.value(), INTERNAL_SERVER_ERROR);
 		}
 	}
 }

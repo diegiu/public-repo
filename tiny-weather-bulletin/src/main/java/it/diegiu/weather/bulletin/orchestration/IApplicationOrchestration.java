@@ -1,6 +1,5 @@
 package it.diegiu.weather.bulletin.orchestration;
 
-import it.diegiu.weather.bulletin.exceptions.ApplicationException;
 import it.diegiu.weather.bulletin.model.WeatherReq;
 import it.diegiu.weather.bulletin.model.WeatherRes;
 
@@ -17,9 +16,8 @@ public interface IApplicationOrchestration {
 	 * 
 	 * @param weatherReq the input data provided; as {@link WeatherReq}
 	 * @return the weather data; as {@link WeatherRes}
-	 * @throws ApplicationException
 	 * 
 	 * @author giudicidiego
 	 */
-	public WeatherRes getWeatherData(WeatherReq weatherReq) throws ApplicationException;
+	public WeatherRes getWeatherData(WeatherReq weatherReq);
 }

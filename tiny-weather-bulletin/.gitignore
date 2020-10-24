@@ -18,6 +18,7 @@ local.properties
 .recommenders
 .classpath
 .project
+.springBeans
 
 # Maven exclusions
 target/

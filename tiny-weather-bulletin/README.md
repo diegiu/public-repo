@@ -19,8 +19,12 @@ Run the *tiny-weather-bulletin/pom.xml* with goals clean install -U spring-boot:
 
 Run as command **java -jar tiny-weather-bulletin-1.0.0.jar** with java 1.8+ 
 
-**N.W.** During the startup and execution of the application the log file will be created at the path *tiny-weather-bulletin\logs*
+**N.W.** During the startup and execution of the application the log file will be created at the path *tiny-weather-bulletin\logs* 
 
-The embedded API docs and rest client can be reached at [http://localhost:8082/swagger-ui.html](http://localhost:8082/swagger-ui.html) 
+See below the application runtime examples:
 
-![alt text](swagger-ui.PNG)
+* Swagger UI can be reached at [http://localhost:8082/swagger-ui.html](http://localhost:8082/swagger-ui.html) Click the **Try it out** button, fill out the form and then click the **Execute** button 
+
+* *curl command* **curl -X GET "http://localhost:8082/weather/bulletin/averages?cityName=Milan&fromHours=9&toHours=18" -H "accept: application/json"** 
+
+* *Request URL* [http://localhost:8082/weather/bulletin/averages?cityName=Milan&fromHours=9&toHours=18](http://localhost:8082/weather/bulletin/averages?cityName=Milan&fromHours=9&toHours=18) 
