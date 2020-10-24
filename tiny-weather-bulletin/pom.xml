@@ -134,7 +134,7 @@
     			<executions>
         			<execution>
             			<configuration>
-                			<mainClass>com.example.weather.bulletin.Application</mainClass>
+                			<mainClass>it.diegiu.weather.bulletin.Application</mainClass>
             			</configuration>
         			</execution>
     			</executions>
