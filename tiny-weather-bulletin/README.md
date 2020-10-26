@@ -23,6 +23,8 @@ Run as command **java -jar tiny-weather-bulletin-1.0.0.jar** with java 1.8+
 
 See below the application runtime examples:
 
+* Bootstrap HTML can be reached at [http://localhost:8082](http://localhost:8082) Fill out the form and then click the **Execute** button 
+
 * Swagger UI can be reached at [http://localhost:8082/swagger-ui.html](http://localhost:8082/swagger-ui.html) Click the **Try it out** button, fill out the form and then click the **Execute** button 
 
 * *curl command* **curl -X GET "http://localhost:8082/weather/bulletin/averages?cityName=Milan&fromHours=9&toHours=18" -H "accept: application/json"** 
